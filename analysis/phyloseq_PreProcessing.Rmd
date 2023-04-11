@@ -56,10 +56,10 @@ We will need to remove the ASVs that are mitochondria, chloroplast or within the
 # Make a new phyloseq object without the mitochondria, chloroplast or mock community
 noMitoChloroCJMock_physeq <- 
   raw_physeq %>%
-  # Remove the mitochondria ASVs. 
-  subset_taxa(Family != "Mitochondria") %>%
+  # Remove the mitochondria ASVs.  #NOTE THERE WAS A TYPO HERE IN CLASS! 
+  subset_taxa(Family != "Mitochondria" | is.na(Family)) %>%
   # Remove the chloroplast ASVs 
-  subset_taxa(Order != "Chloroplast") %>%
+  subset_taxa( Order !="Chloroplast" | is.na(Order)) %>%
   # remove the mock community and its ASVs 
   prune_samples(sample_names(.) %!in% c("CJ-V08-P", "MockZymoPos"), .) %>%
   # Now we will remove any ASVs of count 0
@@ -70,14 +70,16 @@ noMitoChloroCJMock_physeq
 
 # How many taxa have we removed so far? 
 num_ASVs_rm <- ntaxa(raw_physeq) - ntaxa(noMitoChloroCJMock_physeq)
+num_ASVs_rm
 
 # Proportion of original data maintained
 prop_ASV_rm <- ntaxa(noMitoChloroCJMock_physeq)/ntaxa(raw_physeq)
+prop_ASV_rm
 ```
 
 Now, we could write our methods: 
 
-Mitochondria, chloroplasts, and mock communities were removed resulting in the loss of `r 1-prop_ASV_rm`% of the data.
+Mitochondria, chloroplasts, and mock communities were removed resulting in the loss of `r (1-prop_ASV_rm)*100`% of the data.
 
 
 
@@ -98,20 +100,90 @@ control_physeq <-
   # make sure to remove the ASVs that were not in the controls 
   prune_taxa(taxa_sums(.) > 0, .)
 
+# Check out the phyloseq object 
+control_physeq
+
+# vector of control ASVs
+control_ASVs <- 
+  data.frame(control_physeq@tax_table)$ASV
+
+# Plot the abundance of control ASVs across the 4 samples 
 control_physeq %>%
   plot_bar(., "ASV", fill = "ASV")
 
-#control_ASVs <- 
-#  data.frame(control_physeq@tax_table)$ASV
+################################# ASV ANALYSIS YOU CAN SKIP #################################
+# Make a phyloseq object with only the control ASVs in it 
+controlASVs_physeq <- 
+  noMitoChloroCJMock_physeq %>%
+  subset_taxa(., ASV %in% control_ASVs)
 
-#View(control_physeq@tax_table)
+# Check it out
+controlASVs_physeq
+
+# Let's take a look at the plot 
+controlASVs_physeq %>%
+  plot_bar(., "ASV", fill="ASV", facet_grid=Sample_or_Control~.) + 
+  labs(title = "All Control ASV Abundance in Samples vs Controls") + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+# From this plot, it looks like ASV_1 is REAL and perhaps ASV_20? Let's check 
+controlASVs_physeq %>%
+  subset_taxa(., ASV %in% c("ASV_3", "ASV_1", "ASV_20")) %>% # 
+  plot_bar(., "ASV", fill="ASV", facet_grid=Sample_or_Control~.) +
+  labs(title = "Should we keep these ASVs?") + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 0, hjust = 0.5))
+
+# All the other OTUs 
+controlASVs_physeq %>%
+  subset_taxa(., ASV %!in% c("ASV_3", "ASV_1", "ASV_20")) %>% # ALSO SHOW "ASV_20"
+  plot_bar(., "ASV", fill="ASV", facet_grid=Sample_or_Control~.) + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+################################################################################
+
+
+# FROM ABOVE ANALYSIS 
+# "ASV_1" and "ASV_20" MUST BE KEPT IN THE DATA! 
+# Make a vector of all ASVs to remove
+control_ASVs_toREMOVE <- dplyr::setdiff(control_ASVs, c("ASV_1", "ASV_20"))
+
+# Now make a new phyloseq object without these! 
+length(control_ASVs_toREMOVE)
+length(control_ASVs)
+
+## Actually remove the ASVs! 
+# Create Phyloseq object that has control samples removed. 
+noCONTROLSMitoChloroCJMock_physeq <- 
+  noMitoChloroCJMock_physeq %>%
+  # Now remove ASVs found in control samples samples, EXCEPT ASV_1 and ASV_20
+  subset_taxa(., (ASV %!in% control_ASVs_toREMOVE)) %>%
+  # Now remove control samples
+  subset_samples(., (names %!in% control_samples)) %>%
+  # Remove ASVs with 0 counts. 
+  prune_taxa(taxa_sums(.) > 0, .) 
+
+# Check out the phyloseq object 
+noCONTROLSMitoChloroCJMock_physeq
+
+# After filtering we have removed a total of how many ASVs? 
+total_ASVs_rm <- ntaxa(raw_physeq) - ntaxa(noCONTROLSMitoChloroCJMock_physeq)
+total_ASVs_rm
 ```
 
 
 
 
+**Removing ASVs!**  
+- There were `r ntaxa(noMitoChloroCJMock_physeq)` ASVs that were chloroplasts or mitochondria, extra sample, or mock community.
+- There were `r length(control_ASVs_toREMOVE)` in the control samples. 
+- A total of `r total_ASVs_rm` were removed in our filtering steps.
+- Now, we have a total of `r ntaxa(noCONTROLSMitoChloroCJMock_physeq)`
 
 
-
-
-
+# Session Information 
+```{r}
+# Reproducibility
+devtools::session_info()
+```
