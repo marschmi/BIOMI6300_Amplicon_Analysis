@@ -9,9 +9,6 @@ editor_options:
 
 # Loading packages 
 ```{r}
-# Be in the right place 
-setwd("/workdir/mls528/BIOMI6300_Amplicon_Analysis")
-
 # Efficient loading of the packages 
 pacman::p_load(dada2, tidyverse, patchwork, phyloseq, Biostrings, install = FALSE)
 
