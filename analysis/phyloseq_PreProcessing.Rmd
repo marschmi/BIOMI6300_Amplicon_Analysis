@@ -16,7 +16,8 @@ We will work here in this document to remove any unncessary ASVs or samples, suc
 3. Deal with the controls:  
     a. ASVs found in the controls.  
     b. Control samples themselves.  
-4. Mock ASVs/Mock Community. 
+4. Mock ASVs/Mock Community.  
+5. Samples that have too few reads for reasonable ecological analysis.
 
 
 ## Load Packages and Functions
@@ -26,14 +27,15 @@ We will work here in this document to remove any unncessary ASVs or samples, suc
 pacman::p_load(tidyverse, phyloseq, install = FALSE)
 
 # Source functions
-source("../code/functions.R")
+source("code/functions.R")
+source("code/colors_and_shapes.R")
 ```
 
 ## Load the data!
 
 ```{r load-data}
 # Load in the raw_phyloseq data from DADA2_workflow.Rmd
-load("../data/raw_physeq.RData")
+load("data/raw_physeq.RData")
 
 # Take a look at the S4 object!
 raw_physeq
@@ -180,6 +182,56 @@ total_ASVs_rm
 - There were `r length(control_ASVs_toREMOVE)` in the control samples. 
 - A total of `r total_ASVs_rm` were removed in our filtering steps.
 - Now, we have a total of `r ntaxa(noCONTROLSMitoChloroCJMock_physeq)`
+
+
+# Evaluate the Sequencing Depth 
+```{r}
+# Look at the phyloseq object
+noCONTROLSMitoChloroCJMock_physeq
+
+# Calcuate the sum of the seqs in each sample
+seqSums_df <- 
+  noCONTROLSMitoChloroCJMock_physeq %>%
+  otu_table() %>%
+  # Take the sum of each column of the ASV matrix 
+  colSums() %>%
+  data.frame() %>%
+  rownames_to_column(var = "names") %>%
+  make_MA_metadata()
+  
+# Fix column name in 2nd column 
+colnames(seqSums_df)[2] <- "TotalSeqs"
+
+# take look at the data frame 
+View(seqSums_df)
+
+# Plot it 
+# histogram plot 
+seqSums_df %>%
+  ggplot(aes(x = TotalSeqs)) + 
+  geom_histogram(bins = 50) + 
+  labs(title = "Histogram of Raw Sequence Counts per sample")
+
+# Density plots 
+seqSums_df %>%
+  ggplot(aes(x = TotalSeqs, fill = fraction)) + 
+  geom_density(alpha = 0.5) + 
+  scale_fill_manual(values = fraction_colors)
+```
+
+# Remove sample with too few reads
+```{r}
+preprocessed_physeq <- 
+  noCONTROLSMitoChloroCJMock_physeq %>%
+  subset_samples(., names != "20210615-MA-SCB2F")
+
+min(sample_sums(preprocessed_physeq))
+```
+
+# Save preprocessed phyloseq!
+```{r save-physeq}
+save(preprocessed_physeq, file = "data/preprocessed_physeq.RData")
+```
 
 
 # Session Information 
