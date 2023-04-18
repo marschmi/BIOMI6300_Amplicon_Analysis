@@ -39,6 +39,8 @@ iNEXT_input_df <-
 # Calculate diversity with iNEXT
 set.seed(777)
 
+# WARNING: This command takes a while 
+# Calculating over night 
 # iNEXT_data <- iNEXT(iNEXT_input_df, q = c(0, 1, 2), datatype = "abundance")
 # save(iNEXT_data, file = "data/iNEXT_MissionAransas.RData")
 
@@ -89,17 +91,82 @@ rarefaction_fixed_plot <-
   theme(legend.position = "none") + 
   labs(x = "Number of Sequences")
 rarefaction_fixed_plot
+
 # Save the file! 
 ggsave(rarefaction_fixed_plot, 
        filename = "figures/rarefaction_fixed.png",
        units = "in", height = 3.5, width = 8)
+```
 
 
+### Pull out specific samples and plot it 
+```{r}
+# Explore the iNEXT object
+str(iNEXT_data)
+
+# Pull out information on Rarefaction 
+str(iNEXT_data$iNextEst$size_based)
+iNEXT_data[[2]][1]
+
+# Look into the observed diversity values and check them 
+obs_rich_df <- 
+  iNEXT_data$iNextEst$size_based %>%
+  # extract the richness from the data
+  dplyr::filter(Order.q == 0) %>%
+  dplyr::filter(Method == "Observed") %>%
+  dplyr::rename(names = Assemblage) %>%
+  # Remove the X's from the sample names
+  mutate(names = gsub("X", "", names)) %>%
+  make_MA_metadata()
 
 
-ggiNEXT(iNEXT_data, type = 1, facet.var = "Order.q") + 
-  facet_wrap(~Order.q, scales = "fixed")
+# Manually Plot the rarefaction 
+iNEXT_data$iNextEst$size_based %>%
+  # extract the richness from the data
+  dplyr::filter(Order.q == 0) %>%
+  dplyr::filter(Method == "Rarefaction") %>%
+  dplyr::rename(names = Assemblage) %>%
+  # Remove the X's from the sample names
+  mutate(names = gsub("X", "", names)) %>%
+  make_MA_metadata() %>%
+  ggplot(aes(x = m, y = qD, color = fraction, group = names)) + 
+  geom_line() + 
+  labs(x = "Number of Sequences", y = "Species Richness") + 
+  geom_point(data = obs_rich_df, aes(x = m, y = qD, color = fraction)) + 
+  facet_grid(.~fraction) + 
+  scale_color_manual(values = fraction_colors)
+```
 
+It appears that sample 20210615.MA.ABB2F has a much lower richness compared to all the other samples. Keep an eye out for this sample later! 
+
+
+# Completness Curve
+```{r}
+ggiNEXT(iNEXT_data, type = 2) + 
+  scale_color_manual(values = dat_iNEXT$fraction_color,  guide = FALSE) +
+  scale_fill_manual(values = dat_iNEXT$fraction_color, guide = FALSE) +
+  # ZOOM IN 
+  scale_x_continuous(limits = c(0, 2000)) + 
+  theme(legend.position = "none")
+```
+
+
+# Boxplot of Diversity 
+```{r boxplot-div}
+
+iNEXT_data$AsyEst %>%
+  head()
+
+obs_rich_df %>%
+  ggplot(aes(x = fraction, y = qD, color = fraction)) + 
+  geom_jitter(size = 2.5) + 
+  facet_grid(.~station) + 
+  geom_boxplot(aes(fill = fraction), alpha = 0.5, outlier.shape = NA) + 
+  scale_fill_manual(values = fraction_colors) + 
+  scale_color_manual(values = fraction_colors) 
 
 ```
+
+
+
 
