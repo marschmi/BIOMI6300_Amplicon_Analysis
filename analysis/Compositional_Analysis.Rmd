@@ -1,0 +1,107 @@
+---
+title: 'Between Sample (Beta) Diversity Analysis: Composition of the Communities'
+author: "Marian Schmidt"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: united
+    highlight: tango
+editor_options: 
+  chunk_output_type: console
+---
+
+# Load packages 
+```{r load-packages}
+# Efficiently load packages 
+pacman::p_load(phyloseq, iNEXT, ggpubr, tidyverse, install = FALSE)
+
+# load in functions and color preferences
+source("code/functions.R")
+source("code/colors_and_shapes.R")
+```
+
+# Load data
+```{r load-data}
+load("data/preprocessed_physeq.RData")
+preprocessed_physeq
+
+# What are the sample size distributions?
+preprocessed_physeq %>%
+  sample_sums() %>%
+  data.frame()  %>%
+  View()
+
+# Remove sample that has fewest number of reads
+# The fewest reads is 1839 and the next was 2267.
+# So, I decided to use those extra 400 reads for more accurate beta div analysis
+physeq_2267 <- preprocessed_physeq %>%
+  prune_samples(sample_sums(.) > 2000, .)
+```
+
+
+# Normalize the reads 
+## Scale the read counts
+
+```{r scale_reads}
+set.seed(777) 
+
+# Scale the reads using function scale_reads from functions.R 
+
+# Intution check of number of sequeces per sample
+min(sample_sums(physeq_2267))
+
+
+scaled_physeq2267 <-  
+  physeq_2267 %>%
+  scale_reads(round = "matround")
+  
+
+# Now check the sequencing depth! 
+scaled_seqSums_df <-   
+scaled_physeq2267 %>%  
+otu_table(.) %>%  # Take the sum of the sample abundance   
+colSums(.) %>%  
+data.frame() %>%  
+rownames_to_column(., var = "names") %>% 
+ make_MA_metadata()
+ 
+ # Rename the 2nd column 
+ colnames(scaled_seqSums_df)[2] <- "TotalSeqs"   
+ 
+ # Plot the histogram
+ scaled_seqSums_df %>%  
+ ggplot(aes(x=TotalSeqs)) + #fill = fraction   
+ ggtitle("Histogram of Raw Read Counts Samples") +  
+ geom_histogram(bins = 50) + 
+ theme(legend.position = c(0.15, 0.85)) +   
+ scale_y_continuous(expand = c(0,0)) +   
+ scale_x_continuous(limits = c(2200, 2300)) # PLAY AROUND WITH NUMBERS! 
+```
+
+# PCoA
+```{r}
+# Calculate Bray-Curtis Dissimilarity 
+scaled_BC_pcoa <- 
+  ordinate(
+    physeq = scaled_physeq2267,
+    method = "PCoA",
+    distance = "bray"
+  )
+
+# Plot the PCoA 
+plot_ordination(
+  physeq = scaled_physeq2267,
+  ordination = scaled_BC_pcoa,
+  color = "fraction",
+  shape = "fraction", 
+  title = "Scaled Bray-Curtis PCoA") + 
+  geom_point(size = 5, alpha = 0.5, aes(color = fraction)) + 
+  scale_color_manual(values = fraction_colors)
+```
+
+
+
+
