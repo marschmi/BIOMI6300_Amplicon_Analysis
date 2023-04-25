@@ -16,7 +16,7 @@ editor_options:
 # Load packages 
 ```{r load-packages}
 # Efficiently load packages 
-pacman::p_load(phyloseq, iNEXT, ggpubr, tidyverse, install = FALSE)
+pacman::p_load(phyloseq, iNEXT, ggpubr, vegan, tidyverse, install = FALSE)
 
 # load in functions and color preferences
 source("code/functions.R")
@@ -88,7 +88,8 @@ scaled_BC_pcoa <-
   ordinate(
     physeq = scaled_physeq2267,
     method = "PCoA",
-    distance = "bray"
+    distance = "bray", 
+    binary = FALSE
   )
 
 # Plot the PCoA 
@@ -100,7 +101,82 @@ plot_ordination(
   title = "Scaled Bray-Curtis PCoA") + 
   geom_point(size = 5, alpha = 0.5, aes(color = fraction)) + 
   scale_color_manual(values = fraction_colors)
+
+
+# Station 
+plot_ordination(
+  physeq = scaled_physeq2267,
+  ordination = scaled_BC_pcoa,
+  color = "station",
+  shape = "station", 
+  title = "Scaled Bray-Curtis PCoA") + 
+  geom_point(size = 5, alpha = 0.5, aes(color = station)) + 
+  scale_color_manual(values = station_colors)
 ```
+
+
+# Stats! 
+# Check for differences in the communities using PERMANOVA 
+```{r permanova}
+# Calculate bray curtis for PERMANOVA
+scaled_bray <- phyloseq::distance(scaled_physeq2267, method = "bray", binary = FALSE)
+
+# pull out metadata 
+metadata <- scaled_physeq2267 %>%
+  sample_data() %>%
+  data.frame()
+
+# Permutational Multivariate Analysis of Variance Using Distance Matrices
+# aka PERMANOVA using the adonis2 function from vegan 
+# Test the hypothesis that the fraction centriods are different 
+# using the bray curtis 
+# Testing if the centroids of the fractions are different? 
+adonis2(scaled_bray ~ fraction, data = metadata)
+
+# Are the centroids different for stations based on bray curtis?
+adonis2(scaled_bray ~ station, data = metadata)
+
+adonis2(scaled_bray ~ date, data = metadata)
+
+# Are they independent of each other?
+adonis2(scaled_bray ~ date +  station + fraction, data = metadata)
+
+# Is there an interaction between the variables? 
+adonis2(scaled_bray ~ station * date * fraction, data = metadata)
+```
+
+# Homogeniety of dispersion test: Beta dispr
+```{r}
+# Dispersions between stations 
+betadispr_station <- betadisper(scaled_bray, metadata$station)
+permutest(betadispr_station)
+```
+
+
+# Compositional Analysis 
+```{r}
+phylum_df <- 
+  scaled_physeq2267 %>%
+  tax_glom(taxrank = "Phylum") %>%                     # Agglomerate/merge counts by phylum 
+  transform_sample_counts(function(x) {x/sum(x)}) %>%  # Transform to relative abundances
+  psmelt() %>%                                         # melt into long format data frame 
+  dplyr::filter(Abundance > 0.01)                   # filter out phyla that are > 1% abundant 
+  
+# Plot the phylum distributions 
+phylum_df %>%
+  dplyr::filter(depth == "S") %>%
+  dplyr::filter(Phylum == "Verrucomicrobiota") %>%
+  ggplot(aes(x = fraction, y = Abundance, fill = Phylum)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  facet_grid(date~station) + 
+  scale_fill_manual(values = phylum_colors)
+
+````
+
+
+
+
+
 
 
 
