@@ -140,7 +140,7 @@ seqtab <- makeSequenceTable(merged_amplicons)
 class(seqtab)
 typeof(seqtab)
 dim(seqtab)
-View(seqtab)
+#View(seqtab)
 
 # Inspect the distribution of sequence lengths of all ASVs in dataset 
 table(nchar(getSequences(seqtab)))
@@ -237,7 +237,7 @@ taxa <- addSpecies(taxa, "/workdir/in_class_data/taxonomy/silva_species_assignme
 # Inspect the taxonomy 
 taxa_print <- taxa # Removing sequence rownames for display only
 rownames(taxa_print) <- NULL
-View(taxa_print)
+#View(taxa_print)
 ```
 
 
@@ -257,7 +257,7 @@ length(mock_sample_sub)
 cat("DADA2 inferred", length(mock_sample_sub), "ASVs present in the Mock Community.")
 
 #Who are they in the mock community? 
-View(taxa[row.names(taxa) %in% names(mock_sample_sub), ])
+#View(taxa[row.names(taxa) %in% names(mock_sample_sub), ])
 
 #### Compare our ASVs from the mock community to the reference fasta!
 mock_reference <- getSequences(file.path("/workdir/in_class_data/", "mock_community.fasta"))
@@ -304,13 +304,13 @@ asv_headers
 
 
 ##### Rename ASVs in table then write out our ASV fasta file! 
-View(seqtab_nochim)
+#View(seqtab_nochim)
 asv_tab <- t(seqtab_nochim)
-View(asv_tab)
+#View(asv_tab)
 
 ## Rename our asvs! 
 row.names(asv_tab) <- sub(">", "", asv_headers)
-View(asv_tab)
+#View(asv_tab)
 
 # Write the count table to a file! 
 write.table(asv_tab, "data/ASV_counts.tsv", sep = "\t", quote = FALSE, col.names = NA)
@@ -323,7 +323,7 @@ write(asv_fasta, "data/ASVs.fasta")
 
 ## 2. Taxonomy Table 
 ```{r prepare-tax-table}
-View(taxa)
+#View(taxa)
 
 ##### Prepare tax table 
 # Add the ASV sequences from the rownames to a column 
@@ -337,7 +337,7 @@ stopifnot(new_tax_tab$ASVseqs == colnames(seqtab_nochim))
 
 # Now let's add the ASV names 
 rownames(new_tax_tab) <- rownames(asv_tab)
-View(new_tax_tab)
+#View(new_tax_tab)
 
 ### Final prep of tax table. Add new column with ASV names 
 asv_tax <- 
@@ -347,7 +347,7 @@ asv_tax <-
   # Resort the columns with select
   dplyr::select(Kingdom, Phylum, Class, Order, Family, Genus, Species, ASV, ASVseqs)
 
-View(asv_tax)
+#View(asv_tax)
 
 # Intution check
 stopifnot(asv_tax$ASV == rownames(asv_tax), rownames(asv_tax) == rownames(asv_tab))
