@@ -16,7 +16,7 @@ editor_options:
 # Load packages 
 ```{r load-packages}
 # Efficiently load packages 
-pacman::p_load(phyloseq, iNEXT, ggpubr, vegan, tidyverse, install = FALSE)
+pacman::p_load(phyloseq, iNEXT, ape, dendextend, patchwork, ggpubr, vegan, tidyverse, install = FALSE)
 
 # load in functions and color preferences
 source("code/functions.R")
@@ -92,25 +92,77 @@ scaled_BC_pcoa <-
   )
 
 # Plot the PCoA 
-plot_ordination(
+pcoa_fraction <- plot_ordination(
   physeq = scaled_physeq2267,
   ordination = scaled_BC_pcoa,
   color = "fraction",
   shape = "fraction", 
   title = "Scaled Bray-Curtis PCoA") + 
   geom_point(size = 5, alpha = 0.5, aes(color = fraction)) + 
-  scale_color_manual(values = fraction_colors)
+  scale_color_manual(values = fraction_colors); pcoa_fraction
 
 
 # Station 
-plot_ordination(
+pcoa_station <- plot_ordination(
   physeq = scaled_physeq2267,
   ordination = scaled_BC_pcoa,
   color = "station",
   shape = "station", 
   title = "Scaled Bray-Curtis PCoA") + 
   geom_point(size = 5, alpha = 0.5, aes(color = station)) + 
-  scale_color_manual(values = station_colors)
+  scale_color_manual(values = station_colors); pcoa_station
+```
+
+
+# NMDS 
+```{r NMDS}
+set.seed(777)
+
+# Calculate Bray-Curtis Dissimilarity 
+scaled_BC_nmds <- 
+  ordinate(
+    physeq = scaled_physeq2267,
+    method = "NMDS",
+    distance = "bray", 
+    binary = FALSE)
+
+# NMDS by fraction 
+nmds_fraction <- 
+  plot_ordination(
+  physeq = scaled_physeq2267,
+  ordination = scaled_BC_nmds,
+  color = "fraction",
+  shape = "fraction", 
+  title = "Scaled Bray-Curtis NMDS") + 
+  geom_point(size = 5, alpha = 0.5, aes(color = fraction)) + 
+  scale_color_manual(values = fraction_colors); nmds_fraction
+
+# NMDS by station
+nmds_station <- plot_ordination(
+  physeq = scaled_physeq2267,
+  ordination = scaled_BC_nmds,
+  color = "station",
+  shape = "station", 
+  title = "Scaled Bray-Curtis NMDS") + 
+  geom_point(size = 5, alpha = 0.5, aes(color = station)) + 
+  scale_color_manual(values = station_colors); nmds_station
+```
+
+
+## PCoA vs NMDS
+```{r PCoA-vs-NMDS, fig.width=9, fig.height=4}
+# Draw both ordination methods for fraction 
+## First remove legend for prettier plots 
+pcoa_fraction_noleg <- 
+  pcoa_fraction + theme(legend.position = "none")
+# Drow side-by-side plots for fraction
+pcoa_fraction_noleg+ nmds_fraction
+
+## First remove legend for prettier plots 
+pcoa_station_noleg <- 
+  pcoa_station + theme(legend.position = "none")
+# Drow side-by-side plots for station
+pcoa_station_noleg + nmds_station
 ```
 
 
@@ -149,6 +201,42 @@ adonis2(scaled_bray ~ station * date * fraction, data = metadata)
 # Dispersions between stations 
 betadispr_station <- betadisper(scaled_bray, metadata$station)
 permutest(betadispr_station)
+```
+
+
+# Cluster Analysis 
+
+```{r hclust, fig.height= 6, fig.width=12}
+# Create data for colors 
+color_dat <- data.frame(sample_data(scaled_physeq2267)) %>%
+  mutate(station_color = ifelse(station == "Shipping Channel", "dodgerblue4", 
+                                ifelse(station == "Aransas Bay", "dodgerblue2",
+                                       ifelse(station == "Copano West", "#D9CC3C",
+                                              ifelse(station == "Copano East", "#A0E0BA",
+                                                     ifelse(station == "Mesquite Bay", "#00ADA7",
+                                                            "grey"))))),
+         fraction_color = ifelse(fraction == "Particle", "firebrick3",
+                                 ifelse(fraction == "Free", "goldenrod1", 
+                                        ifelse(fraction == "Whole", "darkorange2",
+                                               "grey")))) 
+
+# Calculate the bray curtis hierarchical clustering
+relabund_bray <- vegdist(t(otu_table(scaled_physeq2267)), method = "bray", binary = FALSE)
+hclust_relabund_bray <- hclust(relabund_bray, method = "average")
+
+# Fraction
+dend_bray_frac <- as.dendrogram(hclust_relabund_bray, hang=0.1)
+labels_colors(dend_bray_frac) <- as.character(color_dat$fraction_color[order.dendrogram(dend_bray_frac)])
+
+dend_bray_station <- as.dendrogram(hclust_relabund_bray, hang=0.1)
+labels_colors(dend_bray_station) <- as.character(color_dat$station_color[order.dendrogram(dend_bray_station)])
+
+# Plot together
+par(mfrow=c(2,1),
+    oma = c(0,0,0,0) + 0.1, # outer margins: bottom, left, top, right 
+    mar = c(5,4,0,0) + 0.1) # plot margins: bottom, left, top, right 
+plot(dend_bray_frac, ylab="Bray-Curtis")
+plot(dend_bray_station, ylab="Bray-Curtis")
 ```
 
 
